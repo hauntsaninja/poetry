@@ -263,10 +263,7 @@ class Uploader:
                         "Redirects are not supported. "
                         "Is the URL missing a trailing slash?"
                     )
-                elif (
-                    resp.status_code == 400
-                    and "was ever registered" in resp.text
-                ):
+                elif resp.status_code == 400 and "was ever registered" in resp.text:
                     self._register(session, url)
                     resp.raise_for_status()
                 else:
