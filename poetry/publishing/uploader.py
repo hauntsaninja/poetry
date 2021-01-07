@@ -201,34 +201,14 @@ class Uploader:
     def _upload(
         self, session, url, dry_run=False
     ):  # type: (requests.Session, str, Optional[bool]) -> None
-        try:
-            self._do_upload(session, url, dry_run)
-        except HTTPError as e:
-            if (
-                e.response.status_code == 400
-                and "was ever registered" in e.response.text
-            ):
-                try:
-                    self._register(session, url)
-                except HTTPError as e:
-                    raise UploadError(e)
-
-            raise UploadError(e)
-
-    def _do_upload(
-        self, session, url, dry_run=False
-    ):  # type: (requests.Session, str, Optional[bool]) -> None
         for file in self.files:
             # TODO: Check existence
 
-            resp = self._upload_file(session, url, file, dry_run)
-
-            if not dry_run:
-                resp.raise_for_status()
+            self._upload_file(session, url, file, dry_run)
 
     def _upload_file(
         self, session, url, file, dry_run=False
-    ):  # type: (requests.Session, str, Path, Optional[bool]) -> requests.Response
+    ):  # type: (requests.Session, str, Path, Optional[bool]) -> None
         data = self.post_data(file)
         data.update(
             {
@@ -283,6 +263,14 @@ class Uploader:
                         "Redirects are not supported. "
                         "Is the URL missing a trailing slash?"
                     )
+                elif (
+                    resp.status_code == 400
+                    and "was ever registered" in resp.text
+                ):
+                    self._register(session, url)
+                    resp.raise_for_status()
+                else:
+                    resp.raise_for_status()
             except (requests.ConnectionError, requests.HTTPError) as e:
                 if self._io.output.supports_ansi():
                     self._io.overwrite(
@@ -293,8 +281,6 @@ class Uploader:
                 raise UploadError(e)
             finally:
                 self._io.write_line("")
-
-        return resp
 
     def _register(
         self, session, url
